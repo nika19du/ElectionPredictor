@@ -1,0 +1,28 @@
+﻿@page "/import"
+@rendermode InteractiveServer
+@inject ElectionPredictor.Services.Interfaces.IPollImportService PollImportService
+
+<h3>Import data</h3>
+
+<button type="button" class="btn btn-primary" @onclick="ImportData">
+    Import October 2024 election
+</button>
+
+<p>@message</p>
+
+@code {
+    private string message = string.Empty;
+
+    private async Task ImportData()
+    {
+        try
+        {
+            await PollImportService.ImportOctober2024ElectionAsync();
+            message = "Import completed successfully.";
+        }
+        catch (Exception ex)
+        {
+            message = ex.ToString();
+        }
+    }
+}

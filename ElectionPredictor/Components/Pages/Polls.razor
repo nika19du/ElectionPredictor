@@ -1,0 +1,51 @@
+﻿@page "/polls"
+@rendermode InteractiveServer
+@inject ElectionPredictor.Services.Interfaces.IPollService PollService
+
+<h3>Polls</h3>
+
+@if (polls is null)
+{
+    <p>Loading...</p>
+}
+else if (!polls.Any())
+{
+    <p>No poll data found.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Election</th>
+                <th>Party</th>
+                <th>Pollster</th>
+                <th>Date</th>
+                <th>Percentage</th>
+                <th>Sample Size</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var poll in polls)
+            {
+                <tr>
+                    <td>@poll.ElectionTitle</td>
+                    <td>@poll.PartyName</td>
+                    <td>@poll.Pollster</td>
+                    <td>@poll.PollDate.ToString("yyyy-MM-dd")</td>
+                    <td>@poll.Percentage%</td>
+                    <td>@(poll.SampleSize?.ToString() ?? "-")</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private List<ElectionPredictor.Models.Dtos.PollListItemDto>? polls;
+
+    protected override async Task OnInitializedAsync()
+    {
+        polls = await PollService.GetAllAsync();
+    }
+}

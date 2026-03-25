@@ -1,0 +1,48 @@
+﻿@page "/predictions"
+@rendermode InteractiveServer
+@inject ElectionPredictor.Services.Interfaces.IPredictionService PredictionService
+
+<h3>Predictions</h3>
+
+@if (predictions is null)
+{
+    <p>Loading...</p>
+}
+else if (!predictions.Any())
+{
+    <p>No prediction data.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Party</th>
+                <th>Predicted %</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in predictions)
+            {
+                <tr>
+                    <td>@item.PartyName</td>
+                    <td>@item.PredictedPercentage.ToString("0.00")%</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <p>
+        <strong>Projected winner:</strong>
+        @predictions.First().PartyName
+    </p>
+}
+
+@code {
+    private List<ElectionPredictor.Models.Dtos.PredictionDto>? predictions;
+
+    protected override async Task OnInitializedAsync()
+    {
+        predictions = await PredictionService.GetSimplePredictionAsync(2024);
+    }
+}
