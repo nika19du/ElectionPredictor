@@ -1,0 +1,134 @@
+﻿@page "/election-results"
+@rendermode InteractiveServer
+@inject ElectionPredictor.Services.Interfaces.IElectionResultsService ElectionResultsService
+@inject ElectionPredictor.Services.Interfaces.IPollImportService PollImportService
+
+<h3>Election Results</h3>
+
+<button type="button" class="btn btn-warning" @onclick="ImportAllResults">
+    Import All Election Results
+</button>
+<p>@message</p>
+<hr/>
+
+@if (results is null)
+{
+    <p>Loading...</p>
+}
+else if (!results.Any())
+{
+    <p>No election results found.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th @onclick='() => SortBy("Election")' style="cursor:pointer;">
+                    Election
+                    @(sortColumn == "Election" ? (sortDescending ? "↓" : "↑") : "")
+                </th>
+                <th @onclick='() => SortBy("Year")' style="cursor:pointer;">
+                    Year
+                    @(sortColumn == "Year" ? (sortDescending ? "↓" : "↑") : "")
+                </th>
+                <th @onclick='() => SortBy("Party")' style="cursor:pointer;">
+                    Party
+                    @(sortColumn == "Party" ? (sortDescending ? "↓" : "↑") : "")
+                </th>
+                <th @onclick='() => SortBy("Vote")' style="cursor:pointer;">
+                    Vote %
+                    @(sortColumn == "Vote" ? (sortDescending ? "↓" : "↑") : "")
+                </th>
+                <th @onclick='() => SortBy("Seats")' style="cursor:pointer;">
+                    Seats
+                    @(sortColumn == "Seats" ? (sortDescending ? "↓" : "↑") : "")
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in results)
+            {
+                <tr>
+                    <td>@item.ElectionTitle</td>
+                    <td>@item.ElectionYear</td>
+                    <td>@item.PartyName</td>
+                    <td>@item.VotePercentage.ToString("0.00")%</td>
+                    <td>@item.Seats</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private string message = string.Empty;
+    private string sortColumn = "Year";
+    private bool sortDescending = true;
+    private List<ElectionPredictor.Models.Dtos.ElectionResultListItemDto>? results;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        results = await ElectionResultsService.GetAllAsync();
+    }
+
+    private async Task ImportAllResults()
+    {
+        try
+        {
+            await PollImportService.ImportAllElectionResultsAsync();
+            await LoadData();
+            message = "All election results imported successfully.";
+        }
+        catch (Exception ex)
+        {
+            message = ex.ToString();
+        }
+    }
+
+    private void SortBy(string column)
+    {
+        if (sortColumn == column)
+        {
+            sortDescending = !sortDescending;
+        }
+        else
+        {
+            sortColumn = column;
+            sortDescending = true;
+        }
+
+        ApplySorting();
+    }
+
+    private void ApplySorting()
+    {
+        if (results == null) return;
+
+        results = sortColumn switch
+        {
+            "Year" => sortDescending
+                ? results.OrderByDescending(x => x.ElectionYear).ToList()
+                : results.OrderBy(x => x.ElectionYear).ToList(),
+
+            "Party" => sortDescending
+                ? results.OrderByDescending(x => x.PartyName).ToList()
+                : results.OrderBy(x => x.PartyName).ToList(),
+
+            "Vote" => sortDescending
+                ? results.OrderByDescending(x => x.VotePercentage).ToList()
+                : results.OrderBy(x => x.VotePercentage).ToList(),
+
+            "Seats" => sortDescending
+                ? results.OrderByDescending(x => x.Seats).ToList()
+                : results.OrderBy(x => x.Seats).ToList(),
+
+            _ => results
+        };
+    }
+}

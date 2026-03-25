@@ -10,13 +10,19 @@ public class PollImportService : IPollImportService
 {
     private readonly ApplicationDbContext _dbContext;
     private readonly IWikipediaApiService _wikipediaApiService;
+    private readonly IWikipediaParseService _wikipediaParseService;
+    private readonly IElectionResultParser _electionResultParser;
 
     public PollImportService(
         ApplicationDbContext dbContext,
-        IWikipediaApiService wikipediaApiService)
+        IWikipediaApiService wikipediaApiService,
+        IWikipediaParseService wikipediaParseService,
+        IElectionResultParser electionResultParser)
     {
         _dbContext = dbContext;
         _wikipediaApiService = wikipediaApiService;
+        _wikipediaParseService = wikipediaParseService;
+        _electionResultParser = electionResultParser;
     }
 
     public async Task ImportOctober2024ElectionAsync()
@@ -24,7 +30,6 @@ public class PollImportService : IPollImportService
         const string pageTitle = "October_2024_Bulgarian_parliamentary_election";
         var sourceUrl = $"https://en.wikipedia.org/wiki/{pageTitle}";
 
-        // 1. Създаваш/намираш изборите
         var election = await _dbContext.Elections
             .FirstOrDefaultAsync(x => x.Title == "October 2024 Bulgarian parliamentary election");
 
@@ -42,14 +47,12 @@ public class PollImportService : IPollImportService
             await _dbContext.SaveChangesAsync();
         }
 
-        // 2. Вземаш суровото съдържание
         var pageContent = await _wikipediaApiService.GetPageContentAsync(pageTitle);
 
         if (string.IsNullOrWhiteSpace(pageContent))
             return;
 
-        // 3. За начало - временно mock парсване.
-        // После тук ще замениш с истински parser.
+        // Засега още е mock import
         var rows = GetMockPollRows(sourceUrl);
 
         foreach (var row in rows)
@@ -93,6 +96,19 @@ public class PollImportService : IPollImportService
         await _dbContext.SaveChangesAsync();
     }
 
+    public async Task<List<ElectionResultImportRow>> TestParseOctober2024ResultsAsync()
+    {
+        var html = await _wikipediaParseService
+            .GetParsedHtmlAsync("October_2024_Bulgarian_parliamentary_election");
+
+        if (string.IsNullOrWhiteSpace(html))
+            return new List<ElectionResultImportRow>();
+
+        var results = _electionResultParser.ParseElectionResults(html);
+
+        return results;
+    }
+
     private static List<WikiPollRow> GetMockPollRows(string sourceUrl)
     {
         return new List<WikiPollRow>
@@ -121,4 +137,121 @@ public class PollImportService : IPollImportService
             }
         };
     }
+
+    public async Task ImportAllElectionResultsAsync()
+    {
+        await ImportElectionResultsFromParserAsync(
+            "April_2021_Bulgarian_parliamentary_election",
+            "April 2021 Bulgarian parliamentary election",
+            2021,
+            new DateTime(2021, 4, 4, 0, 0, 0, DateTimeKind.Utc));
+
+        await ImportElectionResultsFromParserAsync(
+            "July_2021_Bulgarian_parliamentary_election",
+            "July 2021 Bulgarian parliamentary election",
+            2021,
+            new DateTime(2021, 7, 11, 0, 0, 0, DateTimeKind.Utc));
+
+        await ImportElectionResultsFromParserAsync(
+            "November_2021_Bulgarian_parliamentary_election",
+            "November 2021 Bulgarian parliamentary election",
+            2021,
+            new DateTime(2021, 11, 14, 0, 0, 0, DateTimeKind.Utc));
+
+        await ImportElectionResultsFromParserAsync(
+            "2022_Bulgarian_parliamentary_election",
+            "2022 Bulgarian parliamentary election",
+            2022,
+            new DateTime(2022, 10, 2, 0, 0, 0, DateTimeKind.Utc));
+
+        await ImportElectionResultsFromParserAsync(
+            "2023_Bulgarian_parliamentary_election",
+            "2023 Bulgarian parliamentary election",
+            2023,
+            new DateTime(2023, 4, 2, 0, 0, 0, DateTimeKind.Utc));
+
+        await ImportElectionResultsFromParserAsync(
+            "June_2024_Bulgarian_parliamentary_election",
+            "June 2024 Bulgarian parliamentary election",
+            2024,
+            new DateTime(2024, 6, 9, 0, 0, 0, DateTimeKind.Utc));
+
+        await ImportElectionResultsFromParserAsync(
+            "October_2024_Bulgarian_parliamentary_election",
+            "October 2024 Bulgarian parliamentary election",
+            2024,
+            new DateTime(2024, 10, 27, 0, 0, 0, DateTimeKind.Utc));
+
+        await ImportElectionResultsFromParserAsync(
+            "2026_Bulgarian_parliamentary_election",
+            "2026 Bulgarian parliamentary election",
+            2026,
+            new DateTime(2026, 4, 19, 0, 0, 0, DateTimeKind.Utc));
+    }
+
+    public async Task ImportElectionResultsFromParserAsync(
+    string pageTitle,
+    string electionTitle,
+    int year,
+    DateTime electionDate)
+    {
+        var election = await _dbContext.Elections
+            .FirstOrDefaultAsync(x => x.Title == electionTitle);
+
+        if (election == null)
+        {
+            election = new Election
+            {
+                Title = electionTitle,
+                Type = "Parliamentary",
+                Year = year,
+                ElectionDate = DateTime.SpecifyKind(electionDate, DateTimeKind.Utc)
+            };
+
+            _dbContext.Elections.Add(election);
+            await _dbContext.SaveChangesAsync();
+        }
+
+        var html = await _wikipediaParseService.GetParsedHtmlAsync(pageTitle);
+
+        if (string.IsNullOrWhiteSpace(html))
+            return;
+
+        var parsedResults = _electionResultParser.ParseElectionResults(html);
+
+        foreach (var row in parsedResults)
+        {
+            var party = await _dbContext.Parties
+                .FirstOrDefaultAsync(x => x.Name == row.PartyName);
+
+            if (party == null)
+            {
+                party = new Party
+                {
+                    Name = row.PartyName,
+                    ShortName = row.PartyName
+                };
+
+                _dbContext.Parties.Add(party);
+                await _dbContext.SaveChangesAsync();
+            }
+
+            var exists = await _dbContext.ElectionResults
+                .AnyAsync(x => x.ElectionId == election.Id && x.PartyId == party.Id);
+
+            if (exists)
+                continue;
+
+            _dbContext.ElectionResults.Add(new ElectionResult
+            {
+                ElectionId = election.Id,
+                PartyId = party.Id,
+                VotePercentage = row.VotePercentage,
+                Seats = row.Seats
+            });
+        }
+
+        await _dbContext.SaveChangesAsync();
+    }
+
 }

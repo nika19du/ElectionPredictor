@@ -1,6 +1,7 @@
 ﻿@page "/import"
 @rendermode InteractiveServer
 @inject ElectionPredictor.Services.Interfaces.IPollImportService PollImportService
+@inject ElectionPredictor.Services.Interfaces.IWikipediaParseService WikipediaParseService
 
 <h3>Import data</h3>
 
@@ -8,10 +9,59 @@
     Import October 2024 election
 </button>
 
+<br />
+<br />
+
+<button type="button" class="btn btn-success" @onclick="TestParser">
+    Test Parser
+</button>
+
+<br />
+<br />
+
+<button type="button" class="btn btn-warning" @onclick="ImportAllResults">
+    Import All Election Results
+</button>
+<hr />
+<button type="button" class="btn btn-secondary" @onclick="LoadHtml">
+    Load HTML Preview
+</button>
+
+@if (!string.IsNullOrWhiteSpace(htmlPreview))
+{
+    <pre style="max-height: 600px; overflow:auto; white-space: pre-wrap;">@htmlPreview</pre>
+}
+
+@if (parsedResults is not null && parsedResults.Any())
+{
+    <h4>Parsed Results</h4>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Party</th>
+                <th>Vote %</th>
+                <th>Seats</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var result in parsedResults)
+            {
+                <tr>
+                    <td>@result.PartyName</td>
+                    <td>@result.VotePercentage</td>
+                    <td>@result.Seats</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
 <p>@message</p>
 
 @code {
     private string message = string.Empty;
+    private string? htmlPreview;
+    private List<ElectionPredictor.Models.ElectionResultImportRow>? parsedResults;
 
     private async Task ImportData()
     {
@@ -19,6 +69,55 @@
         {
             await PollImportService.ImportOctober2024ElectionAsync();
             message = "Import completed successfully.";
+        }
+        catch (Exception ex)
+        {
+            message = ex.ToString();
+        }
+    }
+
+    private async Task TestParser()
+    {
+        try
+        {
+            parsedResults = await PollImportService.TestParseOctober2024ResultsAsync();
+            message = $"Parser executed successfully. Parsed rows: {parsedResults.Count}";
+        }
+        catch (Exception ex)
+        {
+            message = ex.ToString();
+        }
+    }
+
+    private async Task LoadHtml()
+    {
+        try
+        {
+            var html = await WikipediaParseService
+                .GetParsedHtmlAsync("October_2024_Bulgarian_parliamentary_election");
+
+            if (string.IsNullOrWhiteSpace(html))
+            {
+                message = "No HTML returned.";
+                htmlPreview = null;
+                return;
+            }
+
+            htmlPreview = html.Substring(0, Math.Min(15000, html.Length));
+            message = "HTML loaded successfully.";
+        }
+        catch (Exception ex)
+        {
+            message = ex.ToString();
+        }
+    }
+
+    private async Task ImportAllResults()
+    {
+        try
+        {
+            await PollImportService.ImportAllElectionResultsAsync();
+            message = "All election results imported successfully.";
         }
         catch (Exception ex)
         {

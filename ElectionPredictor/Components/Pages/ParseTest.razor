@@ -1,0 +1,46 @@
+﻿@page "/parse-test"
+@rendermode InteractiveServer
+@inject ElectionPredictor.Services.Interfaces.IWikipediaParseService WikipediaParseService
+
+<h3>Wikipedia Parse Test</h3>
+
+<button type="button" class="btn btn-primary" @onclick="LoadHtml">
+    Load HTML
+</button>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <p>@message</p>
+}
+
+@if (!string.IsNullOrWhiteSpace(htmlPreview))
+{
+    <h5>Preview</h5>
+    <pre style="white-space: pre-wrap; max-height: 400px; overflow-y: auto;">@htmlPreview</pre>
+}
+
+@code {
+    private string message = string.Empty;
+    private string? htmlPreview;
+
+    private async Task LoadHtml()
+    {
+        try
+        {
+            var html = await WikipediaParseService.GetParsedHtmlAsync("October_2024_Bulgarian_parliamentary_election");
+
+            if (string.IsNullOrWhiteSpace(html))
+            {
+                message = "No HTML returned.";
+                return;
+            }
+
+            htmlPreview = html.Length > 5000 ? html[..5000] : html;
+            message = "HTML loaded successfully.";
+        }
+        catch (Exception ex)
+        {
+            message = ex.ToString();
+        }
+    }
+}

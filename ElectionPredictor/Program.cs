@@ -1,5 +1,6 @@
 using ElectionPredictor.Components;
 using ElectionPredictor.Data;
+using ElectionPredictor.Data.Entities;
 using ElectionPredictor.Services;
 using ElectionPredictor.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -16,7 +17,10 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddScoped<IWikipediaApiService, WikipediaApiService>();
 builder.Services.AddScoped<IPollImportService, PollImportService>();
 builder.Services.AddScoped<IPollService, PollService>();
-builder.Services.AddScoped<IPredictionService, PredictionService>();
+builder.Services.AddScoped<IPredictionService, PredictionService>(); 
+builder.Services.AddScoped<IWikipediaParseService, WikipediaParseService>();
+builder.Services.AddScoped<IElectionResultParser, ElectionResultParser>();
+builder.Services.AddScoped<IElectionResultsService, ElectionResultsService>();
 
 builder.Services.AddHttpClient("Wikipedia", client =>
 {
