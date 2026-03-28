@@ -2,18 +2,31 @@
 @rendermode InteractiveServer
 @inject ElectionPredictor.Services.Interfaces.IPredictionService PredictionService
 
-<h3>Predictions</h3>
+<h3>Election Predictions</h3>
 
-@if (predictions is null)
+<div class="mb-3">
+    <label>Select Election Year:</label>
+    <select class="form-select" @bind="selectedYear">
+        <option value="2026">2026</option>
+        <option value="2024">2024</option>
+        <option value="2023">2023</option>
+        <option value="2022">2022</option>
+        <option value="2021">2021</option>
+    </select>
+</div>
+
+<button class="btn btn-primary" @onclick="LoadPredictions">
+    Generate Prediction
+</button>
+
+@if (predictions != null && predictions.Any())
 {
-    <p>Loading...</p>
-}
-else if (!predictions.Any())
-{
-    <p>No prediction data.</p>
-}
-else
-{
+    <hr />
+
+    <h5>
+        🏆 Winner: @predictions.First().PartyName
+    </h5>
+
     <table class="table">
         <thead>
             <tr>
@@ -22,27 +35,27 @@ else
             </tr>
         </thead>
         <tbody>
-            @foreach (var item in predictions)
+            @foreach (var p in predictions)
             {
                 <tr>
-                    <td>@item.PartyName</td>
-                    <td>@item.PredictedPercentage.ToString("0.00")%</td>
+                    <td>@p.PartyName</td>
+                    <td>@p.PredictedPercentage.ToString("0.00")%</td>
                 </tr>
             }
         </tbody>
     </table>
-
-    <p>
-        <strong>Projected winner:</strong>
-        @predictions.First().PartyName
-    </p>
+}
+else if (predictions != null)
+{
+    <p>No prediction data available.</p>
 }
 
 @code {
+    private int selectedYear = 2024;
     private List<ElectionPredictor.Models.Dtos.PredictionDto>? predictions;
 
-    protected override async Task OnInitializedAsync()
+    private async Task LoadPredictions()
     {
-        predictions = await PredictionService.GetSimplePredictionAsync(2024);
+        predictions = await PredictionService.GetSimplePredictionAsync(selectedYear);
     }
 }

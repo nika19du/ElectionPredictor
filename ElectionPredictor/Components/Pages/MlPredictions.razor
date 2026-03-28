@@ -1,0 +1,161 @@
+﻿@page "/ml-predictions"
+@rendermode InteractiveServer
+@inject ElectionPredictor.Services.MlPredictionService MlPredictionService
+
+<h3>ML Election Predictions</h3>
+
+<div class="mb-3">
+    <label>Select Election Year:</label>
+    <select class="form-select" @bind="selectedYear">
+        <option value="2026">2026</option>
+    </select>
+</div>
+
+<div class="mb-3">
+    <button class="btn btn-primary" @onclick="TrainAndPredictAsync" disabled="@isLoading">
+        @(isLoading ? "Training..." : "Train ML Model & Predict")
+    </button>
+</div>
+
+@if (!string.IsNullOrWhiteSpace(message))
+{
+    <div class="alert alert-info">
+        @message
+    </div>
+}
+
+@if (metrics is not null)
+{
+    <div class="card mb-4">
+        <div class="card-header">
+            <strong>Model Metrics</strong>
+        </div>
+        <div class="card-body">
+            <p><strong>Training Rows:</strong> @metrics.TrainingRowCount</p>
+
+            @if (metrics.RSquared.HasValue)
+            {
+                <p><strong>R²:</strong> @metrics.RSquared.Value.ToString("0.0000")</p>
+            }
+            else
+            {
+                <p><strong>R²:</strong> Not available (too few training rows)</p>
+            }
+
+            @if (metrics.RootMeanSquaredError.HasValue)
+            {
+                <p><strong>RMSE:</strong> @metrics.RootMeanSquaredError.Value.ToString("0.0000")</p>
+            }
+            else
+            {
+                <p><strong>RMSE:</strong> Not available (too few training rows)</p>
+            }
+
+            @if (metrics.MeanAbsoluteError.HasValue)
+            {
+                <p><strong>MAE:</strong> @metrics.MeanAbsoluteError.Value.ToString("0.0000")</p>
+            }
+            else
+            {
+                <p><strong>MAE:</strong> Not available (too few training rows)</p>
+            }
+        </div>
+    </div>
+}
+
+@if (predictions is not null && predictions.Any())
+{
+    <div class="card">
+        <div class="card-header">
+            <strong>@selectedYear ML Prediction Results</strong>
+        </div>
+        <div class="card-body">
+            <h5>🏆 Winner: @predictions.First().Party</h5>
+
+            <table class="table table-striped mt-3">
+                <thead>
+                    <tr>
+                        <th>Party</th>
+                        <th>Predicted %</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var prediction in predictions)
+                    {
+                        <tr>
+                            <td>@prediction.Party</td>
+                            <td>@prediction.PredictedPercentage.ToString("0.00")%</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+}
+else if (predictions is not null)
+{
+    <p>No ML predictions available.</p>
+}
+
+@code {
+    private int selectedYear = 2026;
+    private bool isLoading;
+    private string message = string.Empty;
+
+    private List<MlPredictionViewModel>? predictions;
+    private MlMetricsViewModel? metrics;
+
+    private async Task TrainAndPredictAsync()
+    {
+        try
+        {
+            isLoading = true;
+            message = "Training model and generating predictions...";
+            predictions = null;
+            metrics = null;
+
+            var result = await MlPredictionService.TrainEvaluateAndPredictAsync(selectedYear);
+
+            metrics = new MlMetricsViewModel
+            {
+                RSquared = result.RSquared,
+                RootMeanSquaredError = result.RootMeanSquaredError,
+                MeanAbsoluteError = result.MeanAbsoluteError,
+                TrainingRowCount = result.TrainingRowCount
+            };
+
+            predictions = result.Predictions
+                .Select(x => new MlPredictionViewModel
+                {
+                    Party = x.Party,
+                    PredictedPercentage = x.PredictedPercentage
+                })
+                .OrderByDescending(x => x.PredictedPercentage)
+                .ToList();
+
+            message = $"Model trained successfully. Predictions generated: {predictions.Count}. Training rows: {result.TrainingRowCount}";
+        }
+        catch (Exception ex)
+        {
+            message = ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    public class MlPredictionViewModel
+    {
+        public string Party { get; set; } = string.Empty;
+        public float PredictedPercentage { get; set; }
+    }
+
+    public class MlMetricsViewModel
+    {
+        public double? RSquared { get; set; }
+        public double? RootMeanSquaredError { get; set; }
+        public double? MeanAbsoluteError { get; set; }
+        public int TrainingRowCount { get; set; }
+    }
+}

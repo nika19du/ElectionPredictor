@@ -21,6 +21,7 @@ builder.Services.AddScoped<IPredictionService, PredictionService>();
 builder.Services.AddScoped<IWikipediaParseService, WikipediaParseService>();
 builder.Services.AddScoped<IElectionResultParser, ElectionResultParser>();
 builder.Services.AddScoped<IElectionResultsService, ElectionResultsService>();
+builder.Services.AddScoped<MlPredictionService>();
 
 builder.Services.AddHttpClient("Wikipedia", client =>
 {

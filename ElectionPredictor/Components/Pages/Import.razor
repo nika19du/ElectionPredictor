@@ -27,6 +27,17 @@
     Load HTML Preview
 </button>
 
+<br />
+<br />
+<button type="button" class="btn btn-info" @onclick="Import2026Polls">
+    Import 2026 Polls
+</button>
+<br />
+<br />
+
+<button type="button" class="btn btn-dark" @onclick="ImportAllHistoricalPolls">
+    Import All Historical Polls
+</button>
 @if (!string.IsNullOrWhiteSpace(htmlPreview))
 {
     <pre style="max-height: 600px; overflow:auto; white-space: pre-wrap;">@htmlPreview</pre>
@@ -118,6 +129,32 @@
         {
             await PollImportService.ImportAllElectionResultsAsync();
             message = "All election results imported successfully.";
+        }
+        catch (Exception ex)
+        {
+            message = ex.ToString();
+        }
+    }
+
+    private async Task Import2026Polls()
+    {
+        try
+        {
+            await PollImportService.Import2026PollsAsync();
+            message = "2026 polls imported successfully.";
+        }
+        catch (Exception ex)
+        {
+            message = ex.ToString();
+        }
+    }
+
+    private async Task ImportAllHistoricalPolls()
+    {
+        try
+        {
+            await PollImportService.ImportAllHistoricalPollsAsync();
+            message = "All historical polls imported successfully.";
         }
         catch (Exception ex)
         {

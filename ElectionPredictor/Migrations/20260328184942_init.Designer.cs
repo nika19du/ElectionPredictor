@@ -12,8 +12,8 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace ElectionPredictor.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    [Migration("20260325210351_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20260328184942_init")]
+    partial class init
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
